@@ -1,11 +1,11 @@
-import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 const ALLOWED_USER_CODES = ["6", "11", "15", "17", "22", "25", "30", "85", "90", "91", "92"]
 
 export async function GET() {
   try {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
     const { data, error } = await supabase
       .from("users")
