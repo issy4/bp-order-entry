@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { sanitizeForStorage } from "@/lib/storage-utils"
+import { createAdminClient } from "@/lib/supabase/admin"
 import nodemailer from "nodemailer"
 
 function createMailer() {
@@ -121,21 +122,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ==========================
-    // 担当者名取得
-    // ==========================
+// ==========================
+// 担当者名取得
+// ==========================
 
-    let userName = createUserCode
+let userName = createUserCode
 
-    const { data: userData } = await supabase
-      .from("users")
-      .select("name")
-      .eq("user_code", createUserCode)
-      .single()
+const adminSupabase = createAdminClient()
 
-    if (userData?.name) {
-      userName = userData.name
-    }
+const { data: userData, error: userError } = await adminSupabase
+  .from("users")
+  .select("name")
+  .eq("user_code", createUserCode)
+  .maybeSingle()
+
+if (userError) {
+  console.error("[v0] Failed to fetch user name:", userError)
+}
+
+if (userData?.name) {
+  userName = userData.name
+}
 
     // ==========================
     // 3. Google Chat通知
