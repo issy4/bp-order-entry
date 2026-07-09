@@ -1,10 +1,10 @@
-import { createClient } from "@/lib/supabase/server"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import Link from "next/link"
 import { Plus, Download } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { createAdminClient } from "@/lib/supabase/admin"
 import {
   Table,
   TableBody,
@@ -152,7 +152,7 @@ export default async function OrdersPage({
   const from = (currentPage - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   let query = supabase
     .from("order_entries")
@@ -468,8 +468,8 @@ export default async function OrdersPage({
                             <TableCell>
                               {order.order_date
                                 ? format(new Date(order.order_date), "yyyy/M/d", {
-                                  locale: ja,
-                                })
+                                    locale: ja,
+                                  })
                                 : "-"}
                             </TableCell>
                           </TableRow>
