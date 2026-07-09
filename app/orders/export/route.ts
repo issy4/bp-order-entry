@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 interface OrderEntry {
   id: number
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     rawSort in SORTABLE_COLUMNS ? (rawSort as SortKey) : "order_date"
   const dir: SortOrder = rawDir === "asc" ? "asc" : "desc"
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   let query = supabase
     .from("order_entries")
@@ -80,6 +80,7 @@ export async function GET(request: Request) {
   const { data: orderData, error: orderError } = await query
 
   if (orderError) {
+    console.error("[orders export] Error fetching order_entries:", orderError)
     return new Response("CSV出力に失敗しました", { status: 500 })
   }
 
@@ -96,16 +97,20 @@ export async function GET(request: Request) {
   let userMap = new Map<string, string>()
 
   if (userCodes.length > 0) {
-    const { data: userData } = await supabase
+    const { data: userData, error: userError } = await supabase
       .from("users")
       .select("user_code, name")
       .in("user_code", userCodes)
 
-    userMap = new Map(
-      ((userData ?? []) as UserRow[])
-        .filter((user) => user.user_code && user.name)
-        .map((user) => [user.user_code as string, user.name as string])
-    )
+    if (userError) {
+      console.error("[orders export] Error fetching users:", userError)
+    } else {
+      userMap = new Map(
+        ((userData ?? []) as UserRow[])
+          .filter((user) => user.user_code && user.name)
+          .map((user) => [user.user_code as string, user.name as string])
+      )
+    }
   }
 
   const header = [

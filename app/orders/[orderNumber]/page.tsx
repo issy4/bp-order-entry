@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic"
 
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { Button } from "@/components/ui/button"
@@ -29,7 +29,7 @@ export default async function OrderFolderPage({
   params: Promise<{ orderNumber: string }>
 }) {
   const { orderNumber } = await params
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { data, error } = await supabase
     .from("order_entries")
@@ -62,11 +62,15 @@ export default async function OrderFolderPage({
   let salesUserName: string | null = null
 
   if (orderData.sales_user_code) {
-    const { data: userData } = await supabase
+    const { data: userData, error: userError } = await supabase
       .from("users")
       .select("name, user_code")
       .eq("user_code", orderData.sales_user_code)
       .maybeSingle()
+
+    if (userError) {
+      console.error("[order detail] Error fetching user:", userError)
+    }
 
     salesUserName = (userData as UserData | null)?.name ?? null
   }
@@ -120,8 +124,8 @@ export default async function OrderFolderPage({
                 <p>
                   {orderData.order_date
                     ? format(new Date(orderData.order_date), "yyyy年M月d日", {
-                      locale: ja,
-                    })
+                        locale: ja,
+                      })
                     : "-"}
                 </p>
               </div>
