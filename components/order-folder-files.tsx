@@ -86,24 +86,30 @@ export function OrderFolderFiles({
   const folderPath = `${orderNumber}`
 
   const fetchFiles = useCallback(async () => {
-    setIsLoading(true)
+  setIsLoading(true)
 
-    const { data, error } = await supabase
-      .from("order_entry_files")
-      .select("*")
-      .eq("order_entry_id", orderEntryId)
-      .order("created_at", { ascending: false })
+  try {
+    const response = await fetch(
+      `/api/order-files?orderEntryId=${encodeURIComponent(orderEntryId)}`
+    )
 
-    if (error) {
-      console.error(error)
+    const result = await response.json()
+
+    if (!response.ok) {
+      console.error(result)
       toast.error("ファイル一覧の取得に失敗しました")
       setIsLoading(false)
       return
     }
 
-    setFiles(data ?? [])
+    setFiles(result.files ?? [])
+  } catch (error) {
+    console.error(error)
+    toast.error("ファイル一覧の取得に失敗しました")
+  } finally {
     setIsLoading(false)
-  }, [orderEntryId, supabase])
+  }
+}, [orderEntryId])
 
   useEffect(() => {
     fetchFiles()
