@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { sanitizeForStorage } from "@/lib/storage-utils"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { sanitizeForStorage } from "@/lib/storage-utils"
 import nodemailer from "nodemailer"
 
 function createMailer() {
@@ -35,7 +34,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
     // ==========================
     // 1. 受注登録
@@ -122,30 +121,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-// ==========================
-// 担当者名取得
-// ==========================
+    // ==========================
+    // 3. 担当者名取得
+    // ==========================
 
-let userName = createUserCode
+    let userName = createUserCode
 
-const adminSupabase = createAdminClient()
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("name")
+      .eq("user_code", createUserCode)
+      .maybeSingle()
 
-const { data: userData, error: userError } = await adminSupabase
-  .from("users")
-  .select("name")
-  .eq("user_code", createUserCode)
-  .maybeSingle()
+    if (userError) {
+      console.error("[v0] Failed to fetch user name:", userError)
+    }
 
-if (userError) {
-  console.error("[v0] Failed to fetch user name:", userError)
-}
-
-if (userData?.name) {
-  userName = userData.name
-}
+    if (userData?.name) {
+      userName = userData.name
+    }
 
     // ==========================
-    // 3. Google Chat通知
+    // 4. Google Chat通知
     // ==========================
 
     const webhook =
@@ -222,18 +219,31 @@ if (userData?.name) {
       ],
     }
 
-    if (webhook) {
-      await fetch(`${webhook}&threadKey=${orderNumber}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      })
+    try {
+      if (webhook) {
+        const chatResponse = await fetch(`${webhook}&threadKey=${orderNumber}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        })
+
+        if (!chatResponse.ok) {
+          const errorText = await chatResponse.text()
+          console.error(
+            "[v0] Google Chat send error:",
+            chatResponse.status,
+            errorText
+          )
+        }
+      }
+    } catch (chatError) {
+      console.error("[v0] Google Chat send error:", chatError)
     }
 
     // ==========================
-    // 4. Gmail通知
+    // 5. Gmail通知
     // ==========================
 
     try {
