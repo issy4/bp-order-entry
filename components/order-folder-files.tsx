@@ -162,68 +162,48 @@ export function OrderFolderFiles({
   }
 
   const uploadFiles = async () => {
-    if (pendingFiles.length === 0) {
-      toast.error("アップロードするファイルを選択してください")
+  if (pendingFiles.length === 0) {
+    toast.error("アップロードするファイルを選択してください")
+    return
+  }
+
+  setIsUploading(true)
+
+  try {
+    const formData = new FormData()
+
+    formData.append("orderEntryId", orderEntryId)
+    formData.append("orderNumber", orderNumber)
+
+    for (const file of pendingFiles) {
+      formData.append("files", file)
+    }
+
+    const response = await fetch("/api/upload-order-file", {
+      method: "POST",
+      body: formData,
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      console.error(result)
+      toast.error(result.error || "ファイルのアップロードに失敗しました")
       return
     }
 
-    setIsUploading(true)
-    let success = 0
+    toast.success(`${result.uploadedFiles?.length ?? 0} 件アップロードしました`)
 
-    for (const file of pendingFiles) {
-      try {
-        const timestamp = Date.now()
-        const extension = getExtension(file.name)
-        const baseName = file.name
-          .replace(/\.[^/.]+$/, "")
-          .replace(/[^\w\-]/g, "_")
-        const storedFileName = `${timestamp}_${baseName}.${extension}`
-        const filePath = `${folderPath}/${storedFileName}`
+    setPendingFiles([])
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from(bucketName)
-          .upload(filePath, file)
-
-        if (uploadError) {
-          console.error(uploadError)
-          toast.error(`${file.name} のアップロードに失敗しました`)
-          continue
-        }
-
-        const { data: publicUrlData } = supabase.storage
-          .from(bucketName)
-          .getPublicUrl(uploadData.path)
-
-        const { error: insertError } = await supabase
-          .from("order_entry_files")
-          .insert({
-            order_entry_id: orderEntryId,
-            file_url: publicUrlData.publicUrl,
-            file_name: file.name,
-            file_size: file.size,
-          })
-
-        if (insertError) {
-          console.error(insertError)
-          toast.error(`${file.name} の登録に失敗しました`)
-          continue
-        }
-
-        success++
-      } catch (err) {
-        console.error(err)
-        toast.error(`${file.name} の処理中にエラーが発生しました`)
-      }
-    }
-
-    if (success > 0) {
-      toast.success(`${success} 件アップロードしました`)
-      setPendingFiles([])
-      fetchFiles()
-    }
-
+    await fetchFiles()
+  } catch (error) {
+    console.error(error)
+    toast.error("ファイルのアップロードに失敗しました")
+  } finally {
     setIsUploading(false)
   }
+}
 
   const handleUploadSelect = (selectedFiles: File[]) => {
     if (selectedFiles.length === 0) return
